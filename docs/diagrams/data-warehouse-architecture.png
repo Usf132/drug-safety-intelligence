@@ -1,0 +1,170 @@
+
+//////////////////////////////////////////////////////
+// DIMENSION TABLES - DENORMALIZED
+//////////////////////////////////////////////////////
+
+Table dim_date {
+  date_key int [pk, note: 'YYYYMMDD; reserve 0 for unknown']
+  full_date date
+  day_of_month int
+  day_of_week int
+  day_name varchar(12)
+  week_of_year int
+  month_number int
+  month_name varchar(12)
+  quarter_number int
+  year_number int
+  is_weekend boolean
+}
+
+
+Table dim_patient {
+  patient_key bigint [pk, increment]
+  age_raw numeric(8,2)
+  age_unit_raw varchar(10)
+  age_years numeric(6,2)
+  sex varchar(3)
+  weight_kg numeric(8,2)
+  occp_cod varchar(2)
+  reporter_country varchar(100)
+  occr_country varchar(2)
+}
+
+
+Table dim_drug {
+  drug_key bigint [pk, increment]
+
+  // Drug Identification and Mapping
+  mapping_id bigint
+  rxcui varchar(12)
+  name_norm varchar(500)
+  name varchar(500)
+  tty varchar(10)
+  match_method varchar(30)
+  match_score numeric(5,2)
+  status varchar(15)
+  reviewed_manually boolean
+
+  // Drug Class
+  drug_class_id varchar(100)
+  drug_class_name varchar(500)
+  drug_class_type varchar(100)
+  drug_class_source varchar(100)
+
+  // Drug Administration
+  drug_seq int
+  role_cod varchar(2)
+  route varchar(50)
+  dose_amt varchar(50)
+  dose_unit varchar(50)
+  dose_form varchar(50)
+  dose_freq varchar(50)
+  dechal varchar(1)
+  rechal varchar(1)
+  duration numeric(12,2)
+  duration_unit varchar(10)
+
+  // Data Source
+  source_id int
+  source_name varchar(100)
+  source_type varchar(50)
+  source_url varchar(500)
+  source_quarter varchar(6)
+}
+
+
+Table dim_reaction {
+  reaction_key bigint [pk, increment]
+  meddra_code varchar(30)
+  pt_term varchar(500)
+}
+
+
+Table dim_case {
+  case_key bigint [pk, increment]
+
+  // Case Identifiers
+  primaryid bigint
+  caseid bigint
+  caseversion int
+  is_latest_version boolean
+
+  // Report Attributes
+  rept_cod varchar(3)
+  rpsr_cod varchar(3)
+
+  // Safety Attributes
+  serious boolean
+  death boolean
+  outc_cod varchar(2)
+
+  // Indication
+  indi_pt varchar(1000)
+
+  // Patient Foreign Key
+  patient_key bigint
+}
+
+
+Table dim_record {
+  record_key bigint [pk, increment]
+
+  // Record Classification
+  record_type varchar(20)
+
+  // Data Quality Attributes
+  check_id bigint
+  check_name varchar(100)
+  table_name varchar(60)
+  threshold numeric(12,4)
+}
+
+
+//////////////////////////////////////////////////////
+// FACT TABLE - ONLY FKs AND MEASURES
+//////////////////////////////////////////////////////
+
+Table fact_drug_safety {
+
+  // Dimension Foreign Keys
+  date_fda_key int
+  date_event_key int
+  date_start_key int
+  date_end_key int
+
+  drug_key bigint
+  reaction_key bigint
+  case_key bigint
+  record_key bigint
+
+  // Measures
+  exposure_count int
+  metric_value numeric(12,4)
+  check_count int
+  passed_count int
+
+  indexes {
+    drug_key
+    reaction_key
+    case_key
+    record_key
+  }
+}
+
+
+//////////////////////////////////////////////////////
+// RELATIONSHIPS
+//////////////////////////////////////////////////////
+
+Ref: dim_case.patient_key > dim_patient.patient_key
+
+Ref: fact_drug_safety.drug_key > dim_drug.drug_key
+Ref: fact_drug_safety.reaction_key > dim_reaction.reaction_key
+Ref: fact_drug_safety.case_key > dim_case.case_key
+Ref: fact_drug_safety.record_key > dim_record.record_key
+
+// Role-playing Date Dimension
+Ref: fact_drug_safety.date_fda_key > dim_date.date_key
+Ref: fact_drug_safety.date_event_key > dim_date.date_key
+Ref: fact_drug_safety.date_start_key > dim_date.date_key
+Ref: fact_drug_safety.date_end_key > dim_date.date_key
